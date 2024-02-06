@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Query Execution</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #downloadPdfButton {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enter Custom Query</h1>
+    <textarea id="queryInput" rows="4" cols="50"></textarea><br>
+    <button onclick="executeQuery()">Execute Query</button>
+    <div id="queryResult"></div>
+    <button id="downloadPdfButton" onclick="downloadPdf()">Download PDF</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script>
+    <script>
+        function executeQuery() {
+            var query = document.getElementById("queryInput").value;
+
+            fetch('/api/holiday/executeQuery', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Create table element
+                var table = document.createElement('table');
+                
+                // Add table header row
+                var headers = Object.keys(data[0]);
+                var headerRow = table.insertRow();
+                headers.forEach(header => {
+                    var th = document.createElement('th');
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+
+                // Add table rows with data
+                data.forEach(rowData => {
+                    var row = table.insertRow();
+                    headers.forEach(header => {
+                        var cell = row.insertCell();
+                        cell.textContent = rowData[header];
+                    });
+                });
+
+                // Clear previous result and append table to result div
+                var queryResultDiv = document.getElementById("queryResult");
+                queryResultDiv.innerHTML = '';
+                queryResultDiv.appendChild(table);
+
+                // Show the download PDF button
+                var downloadPdfButton = document.getElementById("downloadPdfButton");
+                downloadPdfButton.style.display = "block";
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function downloadPdf() {
+            var queryResultDiv = document.getElementById("queryResult");
+
+            // Convert table to PDF and download
+            html2canvas(queryResultDiv).then(canvas => {
+                var imgData = canvas.toDataURL('image/png');
+                var pdf = new jsPDF('p', 'mm', 'a4');
+                pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+                pdf.save('query_result.pdf');
+            });
+        }
+    </script>
+</body>
+</html>

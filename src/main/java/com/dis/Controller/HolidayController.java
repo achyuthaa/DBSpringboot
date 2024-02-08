@@ -1,5 +1,7 @@
 package com.dis.Controller;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,15 +43,42 @@ public class HolidayController {
     private JdbcTemplate jdbcTemplate;
 
     @PostMapping("/executeQuery")
-    public ResponseEntity<List<Map<String, Object>>> executeQuery(@RequestBody Map<String, String> requestBody) {
+    public ResponseEntity<?> executeQuery(@RequestBody Map<String, String> requestBody) {
         String query = requestBody.get("query");
+        String queryType = getQueryType(query);
         try {
-            List<Map<String, Object>> queryResult = jdbcTemplate.queryForList(query);
-            return ResponseEntity.ok(queryResult);
+            switch (queryType) {
+                case "SELECT":
+                    List<Map<String, Object>> queryResult = jdbcTemplate.queryForList(query);
+                    return ResponseEntity.ok(queryResult);
+                case "UPDATE":
+                case "INSERT":
+                case "DELETE":
+                    int rowsAffected = jdbcTemplate.update(query);
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("message", "Rows affected: " + rowsAffected);
+                    response.put("data", Collections.emptyList());
+                    return ResponseEntity.ok(response);
+                default:
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("error", "Unsupported query type");
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Internal server error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
+    }
+
+    private String getQueryType(String query) {
+        String[] parts = query.trim().split("\\s+");
+        if (parts.length > 0) {
+            return parts[0].toUpperCase();
+        }
+        return "";
+
     }
 
 }

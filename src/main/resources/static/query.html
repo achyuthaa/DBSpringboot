@@ -3,65 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-       $(document).ready(function() {
-    $('#loginForm').submit(function(event) {
-        event.preventDefault(); // Prevent form submission
-
-        // Get input values
-        var username = $('#username').val();
-        var password = $('#password').val();
-
-        // Construct login request object
-        var loginRequest = {
-            username: username,
-            password: password
-        };
-
-        // Send login request to backend
-        $.ajax({
-            type: 'POST',
-            url: '/api/holiday/login',
-            contentType: 'application/json',
-            data: JSON.stringify(loginRequest),
-            success: function(response) {
-                // Handle successful login response
-                // Redirect user to the new page
-                window.location.href = response;
-                console.log("Redirecting to:", response);
-            },
-            error: function(xhr, status, error) {
-                // Handle login error
-                $('#message').text(xhr.responseText);
-            }
-        });
-    });
-});
-
-    </script>
-</head>
-<body>
-    <h2>Login</h2>
-    <form id="loginForm">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username"><br><br>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password"><br><br>
-        <button type="submit">Login</button>
-    </form>
-
-    <div id="message"></div>
-</body>
-</html>
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Custom Query Execution</title>
     <style>
         table {
@@ -132,6 +73,42 @@
                 .then((response) => response.json())
                 .then((data) => {
                     // Your existing code to display query results
+                    if (data.hasOwnProperty("message")) {
+              // Display the message directly
+              var queryResultDiv = document.getElementById("queryResult");
+              queryResultDiv.textContent = data.message;
+            } else {
+              // Create table element
+              var table = document.createElement("table");
+
+              // Add table header row
+              var headers = Object.keys(data[0]);
+              var headerRow = table.insertRow();
+              headers.forEach((header) => {
+                var th = document.createElement("th");
+                th.textContent = header;
+                headerRow.appendChild(th);
+              });
+
+              // Add table rows with data
+              data.forEach((rowData) => {
+                var row = table.insertRow();
+                headers.forEach((header) => {
+                  var cell = row.insertCell();
+                  cell.textContent = rowData[header];
+                });
+              });
+
+              // Clear previous result and append table to result div
+              var queryResultDiv = document.getElementById("queryResult");
+              queryResultDiv.innerHTML = "";
+              queryResultDiv.appendChild(table);
+
+              // Show the download PDF button
+              var downloadPdfButton =
+                document.getElementById("downloadPdfButton");
+              downloadPdfButton.style.display = "block";
+            }
                 })
                 .catch((error) => console.error("Error:", error));
             });

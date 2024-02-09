@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Query Execution</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #downloadPdfButton {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enter Custom Query</h1>
+    <textarea id="queryInput" rows="4" cols="50"></textarea><br />
+    <button onclick="executeQuery()">Execute Query</button>
+    <div id="queryResult"></div>
+    <button id="downloadPdfButton" onclick="downloadPdf()">Download PDF</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Function to check if the user is logged in
+        function isLoggedIn() {
+    // Make a GET request to the server to check if the user is logged in
+    return fetch("/api/holiday/isLoggedIn")
+        .then(response => {
+            if (response.ok) {
+                return true; // User is logged in
+            } else {
+                return false; // User is not logged in
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            return false; // Error occurred, assume user is not logged in
+        });
+}
+
+        // Function to execute the query
+        function executeQuery() {
+            isLoggedIn().then(function(loggedIn) {
+                if (!loggedIn) {
+                    alert("Please log in to execute the query.");
+                    return;
+                }
+
+                var query = document.getElementById("queryInput").value;
+
+                fetch("/api/holiday/executeQuery", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: query }),
+                })
+                .then((response) => response.json())
+                .then((data) => {
+                    // Your existing code to display query results
+                    if (data.hasOwnProperty("message")) {
+              // Display the message directly
+              var queryResultDiv = document.getElementById("queryResult");
+              queryResultDiv.textContent = data.message;
+            } else {
+              // Create table element
+              var table = document.createElement("table");
+
+              // Add table header row
+              var headers = Object.keys(data[0]);
+              var headerRow = table.insertRow();
+              headers.forEach((header) => {
+                var th = document.createElement("th");
+                th.textContent = header;
+                headerRow.appendChild(th);
+              });
+
+              // Add table rows with data
+              data.forEach((rowData) => {
+                var row = table.insertRow();
+                headers.forEach((header) => {
+                  var cell = row.insertCell();
+                  cell.textContent = rowData[header];
+                });
+              });
+
+              // Clear previous result and append table to result div
+              var queryResultDiv = document.getElementById("queryResult");
+              queryResultDiv.innerHTML = "";
+              queryResultDiv.appendChild(table);
+
+              // Show the download PDF button
+              var downloadPdfButton =
+                document.getElementById("downloadPdfButton");
+              downloadPdfButton.style.display = "block";
+            }
+                })
+                .catch((error) => console.error("Error:", error));
+            });
+        }
+
+        // Function to download PDF
+        function downloadPdf() {
+            isLoggedIn().then(function(loggedIn) {
+                if (!loggedIn) {
+                    alert("Please log in to download the PDF.");
+                    return;
+                }
+
+                var queryResultDiv = document.getElementById("queryResult");
+
+                // Convert table to PDF and download
+                html2canvas(queryResultDiv).then((canvas) => {
+                    var imgData = canvas.toDataURL("image/png");
+                    var pdf = new jsPDF("p", "mm", "a4");
+                    pdf.addImage(
+                        imgData,
+                        "PNG",
+                        0,
+                        0,
+                        pdf.internal.pageSize.getWidth(),
+                        pdf.internal.pageSize.getHeight()
+                    );
+                    pdf.save("query_result.pdf");
+                });
+            });
+        }
+    </script>
+</body>
+</html>

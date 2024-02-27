@@ -30,6 +30,7 @@
     <h1>Enter Custom Query</h1>
     <textarea id="queryInput" rows="4" cols="50"></textarea><br />
     <button onclick="executeQuery()">Execute Query</button>
+    <button onclick="logout()">Logout</button> <!-- Added logout button -->
     <div id="queryResult"></div>
     <button id="downloadPdfButton" onclick="downloadPdf()">Download PDF</button>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
@@ -38,20 +39,19 @@
     <script>
         // Function to check if the user is logged in
         function isLoggedIn() {
-    // Make a GET request to the server to check if the user is logged in
-    return fetch("/api/holiday/isLoggedIn")
-        .then(response => {
-            if (response.ok) {
-                return true; // User is logged in
-            } else {
-                return false; // User is not logged in
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-            return false; // Error occurred, assume user is not logged in
-        });
-}
+            return fetch("/api/holiday/isLoggedIn")
+                .then(response => {
+                    if (response.ok) {
+                        return true; // User is logged in
+                    } else {
+                        return false; // User is not logged in
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    return false; // Error occurred, assume user is not logged in
+                });
+        }
 
         // Function to execute the query
         function executeQuery() {
@@ -72,43 +72,34 @@
                 })
                 .then((response) => response.json())
                 .then((data) => {
-                    // Your existing code to display query results
                     if (data.hasOwnProperty("message")) {
-              // Display the message directly
-              var queryResultDiv = document.getElementById("queryResult");
-              queryResultDiv.textContent = data.message;
-            } else {
-              // Create table element
-              var table = document.createElement("table");
+                        var queryResultDiv = document.getElementById("queryResult");
+                        queryResultDiv.textContent = data.message;
+                    } else {
+                        var table = document.createElement("table");
+                        var headers = Object.keys(data[0]);
+                        var headerRow = table.insertRow();
+                        headers.forEach((header) => {
+                            var th = document.createElement("th");
+                            th.textContent = header;
+                            headerRow.appendChild(th);
+                        });
 
-              // Add table header row
-              var headers = Object.keys(data[0]);
-              var headerRow = table.insertRow();
-              headers.forEach((header) => {
-                var th = document.createElement("th");
-                th.textContent = header;
-                headerRow.appendChild(th);
-              });
+                        data.forEach((rowData) => {
+                            var row = table.insertRow();
+                            headers.forEach((header) => {
+                                var cell = row.insertCell();
+                                cell.textContent = rowData[header];
+                            });
+                        });
 
-              // Add table rows with data
-              data.forEach((rowData) => {
-                var row = table.insertRow();
-                headers.forEach((header) => {
-                  var cell = row.insertCell();
-                  cell.textContent = rowData[header];
-                });
-              });
+                        var queryResultDiv = document.getElementById("queryResult");
+                        queryResultDiv.innerHTML = "";
+                        queryResultDiv.appendChild(table);
 
-              // Clear previous result and append table to result div
-              var queryResultDiv = document.getElementById("queryResult");
-              queryResultDiv.innerHTML = "";
-              queryResultDiv.appendChild(table);
-
-              // Show the download PDF button
-              var downloadPdfButton =
-                document.getElementById("downloadPdfButton");
-              downloadPdfButton.style.display = "block";
-            }
+                        var downloadPdfButton = document.getElementById("downloadPdfButton");
+                        downloadPdfButton.style.display = "block";
+                    }
                 })
                 .catch((error) => console.error("Error:", error));
             });
@@ -124,7 +115,6 @@
 
                 var queryResultDiv = document.getElementById("queryResult");
 
-                // Convert table to PDF and download
                 html2canvas(queryResultDiv).then((canvas) => {
                     var imgData = canvas.toDataURL("image/png");
                     var pdf = new jsPDF("p", "mm", "a4");
@@ -139,6 +129,23 @@
                     pdf.save("query_result.pdf");
                 });
             });
+        }
+
+        // Function to log out
+        function logout() {
+            fetch("/api/holiday/isLoggedout")
+                .then(response => {
+                    if (response.ok) {
+                        alert("Logged out successfully.");
+                        location.reload(); 
+                    } else {
+                        alert("Logout failed. Please try again.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred during logout. Please try again.");
+                });
         }
     </script>
 </body>

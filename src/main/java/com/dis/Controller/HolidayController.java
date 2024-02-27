@@ -1,5 +1,7 @@
 package com.dis.Controller;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,10 +22,12 @@ import org.springframework.web.util.UriComponents;
 import com.dis.Entity.Holiday;
 import com.dis.Repository.HolidayRepository;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/holiday")
@@ -73,6 +77,15 @@ public class HolidayController {
 
     }
 
+    @GetMapping("/isLoggedout")
+    public ResponseEntity<String> isLoggedout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false); // Do not create a new session if it doesn't exist
+        if (session != null) {
+            session.invalidate();
+        }
+        return ResponseEntity.ok("Session has been invalidated");
+    }
+
     @GetMapping("/isLoggedIn")
     public ResponseEntity<String> isLoggedIn(HttpSession session) {
         if (session.getAttribute("username") != null) {
@@ -87,10 +100,14 @@ public class HolidayController {
         if (session.getAttribute("username") != null) {
             String query = requestBody.get("query");
             String queryType = getQueryType(query);
+            String addDetails = "INSERT INTO users_expenditure (Name, Query, Date) VALUES (?, ?, ?)";
             try {
                 switch (queryType) {
                     case "SELECT":
                         List<Map<String, Object>> queryResult = jdbcTemplate.queryForList(query);
+                        String username = (String) session.getAttribute("username");
+                        String currentDate = LocalDateTime.now().toString();
+                        jdbcTemplate.update(addDetails, username, query, currentDate);
                         return ResponseEntity.ok(queryResult);
                     case "UPDATE":
                     case "INSERT":

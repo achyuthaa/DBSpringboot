@@ -1,63 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-       $(document).ready(function() {
-    $('#loginForm').submit(function(event) {
-        event.preventDefault(); // Prevent form submission
+      $("#signuppage").hide();
+      $(document).ready(function () {
+        // Initially hide the signup form
 
-        // Get input values
-        var username = $('#username').val();
-        var password = $('#password').val();
-
-        // Construct login request object
-        var loginRequest = {
-            username: username,
-            password: password
-        };
-
-        // Send login request to backend
-        $.ajax({
-            type: 'POST',
-            url: '/api/holiday/login',
-            contentType: 'application/json',
-            data: JSON.stringify(loginRequest),
-            success: function(response) {
-                // Handle successful login response
-                // Redirect user to the new page
-                window.location.href = response;
-                console.log("Redirecting to:", response);
-            },
-            error: function(xhr, status, error) {
-                // Handle login error
-                $('#message').text(xhr.responseText);
-            }
+        // Show login form by default
+        $("#showLogin").click(function () {
+          $("#signuppage").hide();
+          $("#loginpage").show();
+          $("#message").text("");
+          $("#signup-message").text("");
         });
-    });
-});
 
+        // Show signup form
+        $("#showSignup").click(function () {
+          $("#loginpage").hide();
+          $("#signuppage").show();
+
+          $("#message").text("");
+          $("#signup-message").text("");
+        });
+
+        $("#loginForm").submit(function (event) {
+          event.preventDefault(); // Prevent form submission
+
+          // Get input values
+          var username = $("#username").val();
+          var password = $("#password").val();
+
+          var loginRequest = {
+            username: username,
+            password: password,
+          };
+
+          // Send login request to backend
+          $.ajax({
+            type: "POST",
+            url: "/api/holiday/login",
+            contentType: "application/json",
+            data: JSON.stringify(loginRequest),
+            success: function (response) {
+              // Handle successful login response
+              // Redirect user to the new page
+              window.location.href = response;
+              console.log("Redirecting to:", response);
+            },
+            error: function (xhr, status, error) {
+              // Handle login error
+              $("#message").text(xhr.responseText);
+            },
+          });
+        });
+
+        $("#signupForm").submit(function (event) {
+          event.preventDefault(); // Prevent form submission
+
+          // Get input values
+          var username = $("#signup-username").val();
+          var password = $("#signup-password").val();
+          var email = $("#signup-email").val();
+
+          // Send sign-up request to backend
+          var signupRequest = {
+            username: username,
+            password: password,
+            email: email,
+          };
+          console.log("abc");
+          $.ajax({
+            type: "POST",
+            url: "/api/holiday/signup",
+            contentType: "application/json",
+            data: JSON.stringify(signupRequest),
+            success: function (response) {
+              // Handle successful sign-up response
+              console.log(response);
+              $("#showLogin").click();
+            },
+            error: function (xhr, status, error) {
+              // Handle sign-up error
+              alert("Error: " + xhr.responseText);
+            },
+          });
+        });
+      });
     </script>
-</head>
-<body>
-    <h2>Login</h2>
-    <form id="loginForm">
+  </head>
+  <body>
+    <div id="loginpage">
+      <form id="loginForm">
+        <h2>Login</h2>
         <label for="username">Username:</label>
-        <input type="text" id="username" name="username"><br><br>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password"><br><br>
-        <button type="submit">Login</button>
-    </form>
+        <input type="text" id="username" name="username" /><br /><br />
 
-    <div id="message"></div>
-</body>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" /><br /><br />
+        <button type="submit">Login</button>
+      </form>
+      <button id="showSignup">Not registered? Sign up</button>
+    </div>
+
+    <div id="signuppage" style="display: none">
+      <form id="signupForm">
+        <h2>Sign Up</h2>
+        <label for="signup-username">Username:</label>
+        <input
+          type="text"
+          id="signup-username"
+          name="signup-username"
+        /><br /><br />
+        <label for="signup-email">Email:</label>
+        <input type="text" id="signup-email" name="signup-email" /><br /><br />
+        <label for="signup-password">Password:</label>
+        <input
+          type="password"
+          id="signup-password"
+          name="signup-password"
+        /><br /><br />
+        <button type="submit">Sign Up</button>
+      </form>
+      <button id="showLogin">Already registered? Login</button>
+    </div>
+  </body>
 </html>
 
-
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -155,4 +228,4 @@
         }
     </script>
 </body>
-</html>
+</html> -->

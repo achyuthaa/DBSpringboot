@@ -33,22 +33,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RequestMapping("/api/holiday")
 public class HolidayController {
 
-    /*
-     * @Autowired
-     * private HolidayRepository holidayRepository;
-     * 
-     * @GetMapping("/execute")
-     * public ResponseEntity<List<Holiday>> getAllHolidays() {
-     * try {
-     * List<Holiday> users = holidayRepository.findAll();
-     * return ResponseEntity.ok(users);
-     * } catch (Exception e) {
-     * e.printStackTrace();
-     * return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-     * }
-     * }
-     */
-
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -75,6 +59,32 @@ public class HolidayController {
 
         return val == 1;
 
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<?> signupFunction(@RequestBody Map<String, String> signupRequest) {
+        String username = signupRequest.get("username");
+        String password = signupRequest.get("password");
+        String email = signupRequest.get("email");
+
+        if (usernameExists(username)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Username already exists");
+        }
+
+        String insertQuery = "INSERT INTO Users (Name, Email, Password, Userpermissions) VALUES (?, ?, ?, ?)";
+        try {
+            jdbcTemplate.update(insertQuery, username, email, password, 0);
+            return ResponseEntity.status(HttpStatus.CREATED).body("Sign up successful");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to sign up");
+        }
+    }
+
+    private boolean usernameExists(String username) {
+        String query = "SELECT COUNT(*) FROM Users WHERE Name = ?";
+        int count = jdbcTemplate.queryForObject(query, Integer.class, username);
+        return count > 0;
     }
 
     @GetMapping("/isLoggedout")

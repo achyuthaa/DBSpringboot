@@ -1,15 +1,13 @@
 package com.dis.Controller;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.batch.BatchProperties.Jdbc;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,17 +15,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import org.springframework.web.util.UriComponents;
-
-import com.dis.Entity.Holiday;
-import com.dis.Repository.HolidayRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/holiday")
@@ -41,8 +34,11 @@ public class HolidayController {
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
 
-        if (isValid(username, password)) {
+        Integer userPermissions = getUserPermissions(username, password);
+        if (userPermissions != null) {
             session.setAttribute("username", username);
+            session.setAttribute("userpermissions", userPermissions);
+
             String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                     .path("/query.html")
                     .toUriString();
@@ -52,13 +48,15 @@ public class HolidayController {
         }
     }
 
-    private boolean isValid(String username, String password) {
-
-        String query = "SELECT COUNT(*) FROM Users WHERE Name = ? AND Password = ?";
-        int val = jdbcTemplate.queryForObject(query, Integer.class, username, password);
-
-        return val == 1;
-
+    private Integer getUserPermissions(String username, String password) {
+        String query = "SELECT userpermissions FROM Users WHERE Name = ? AND Password = ?";
+        Integer userPermissions = null;
+        try {
+            userPermissions = jdbcTemplate.queryForObject(query, Integer.class, username, password);
+        } catch (EmptyResultDataAccessException e) {
+            // User not found or invalid credentials
+        }
+        return userPermissions;
     }
 
     @PostMapping("/signup")
@@ -73,7 +71,7 @@ public class HolidayController {
 
         String insertQuery = "INSERT INTO Users (Name, Email, Password, Userpermissions) VALUES (?, ?, ?, ?)";
         try {
-            jdbcTemplate.update(insertQuery, username, email, password, 0);
+            jdbcTemplate.update(insertQuery, username, email, password, 1);
             return ResponseEntity.status(HttpStatus.CREATED).body("Sign up successful");
         } catch (Exception e) {
             e.printStackTrace();
@@ -108,39 +106,72 @@ public class HolidayController {
     @PostMapping("/executeQuery")
     public ResponseEntity<?> executeQuery(@RequestBody Map<String, String> requestBody, HttpSession session) {
         if (session.getAttribute("username") != null) {
+            // Fetch user permissions
+            Integer userPermissions = (Integer) session.getAttribute("userpermissions");
+            if (userPermissions == null) {
+                return handleErrorResponse("User permissions not found", HttpStatus.UNAUTHORIZED);
+            }
+
             String query = requestBody.get("query");
             String queryType = getQueryType(query);
             String addDetails = "INSERT INTO users_expenditure (Name, Query, Date) VALUES (?, ?, ?)";
             try {
                 switch (queryType) {
                     case "SELECT":
-                        List<Map<String, Object>> queryResult = jdbcTemplate.queryForList(query);
-                        String username = (String) session.getAttribute("username");
-                        String currentDate = LocalDateTime.now().toString();
-                        jdbcTemplate.update(addDetails, username, query, currentDate);
-                        return ResponseEntity.ok(queryResult);
+                        // All users can perform SELECT queries
+                        return performSelectQuery(query, session, addDetails);
                     case "UPDATE":
                     case "INSERT":
                     case "DELETE":
-                        int rowsAffected = jdbcTemplate.update(query);
-                        Map<String, Object> response = new HashMap<>();
-                        response.put("message", "Rows affected: " + rowsAffected);
-                        response.put("data", Collections.emptyList());
-                        return ResponseEntity.ok(response);
+                        // Check if user has permission for non-SELECT queries
+                        if (userPermissions == 0) {
+                            return performNonSelectQuery(query, session);
+                        } else {
+                            return handleErrorResponse("User not authorized for this operation",
+                                    HttpStatus.UNAUTHORIZED);
+                        }
                     default:
-                        Map<String, Object> errorResponse = new HashMap<>();
-                        errorResponse.put("error", "Unsupported query type");
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+                        return handleErrorResponse("Unsupported query type", HttpStatus.BAD_REQUEST);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("error", "Internal server error");
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return handleErrorResponse("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR);
             }
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User is not logged in");
+            return handleErrorResponse("User is not logged in", HttpStatus.UNAUTHORIZED);
         }
+    }
+
+    private ResponseEntity<?> performSelectQuery(String query, HttpSession session, String addDetails) {
+        try {
+            List<Map<String, Object>> queryResult = jdbcTemplate.queryForList(query);
+            String username = (String) session.getAttribute("username");
+            String currentDate = LocalDateTime.now().toString();
+            jdbcTemplate.update(addDetails, username, query, currentDate);
+            return ResponseEntity.ok(queryResult);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return handleErrorResponse("Error executing SELECT query", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private ResponseEntity<?> performNonSelectQuery(String query, HttpSession session) {
+        try {
+            int rowsAffected = jdbcTemplate.update(query);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Rows affected: " + rowsAffected);
+            response.put("data", Collections.emptyList());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return handleErrorResponse("Error executing non-SELECT query", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private ResponseEntity<?> handleErrorResponse(String errorMessage, HttpStatus status) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("error", errorMessage);
+        return ResponseEntity.status(status).body(errorResponse);
     }
 
     private String getQueryType(String query) {

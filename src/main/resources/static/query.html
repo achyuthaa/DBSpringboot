@@ -153,10 +153,6 @@ function checkLoginAndDisplay() {
             });
     }
 
-    // Remaining JavaScript functions...
-
-    // Call checkLoginAndDisplay when the page loads
-      // Function to check if the user is logged in
       function isLoggedIn() {
         return fetch("/api/holiday/isLoggedIn")
           .then((response) => {

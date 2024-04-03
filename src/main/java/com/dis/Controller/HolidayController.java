@@ -1,5 +1,8 @@
 package com.dis.Controller;
 
+import java.io.Console;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -7,14 +10,18 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import com.dis.Repository.NumOfQueriesRequest;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -28,13 +35,20 @@ public class HolidayController {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    String user = "";
+    int permission = 2;
 
     @PostMapping("/login")
     public ResponseEntity<?> loginFunction(@RequestBody Map<String, String> loginRequest, HttpSession session) {
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
+        System.out.println(username);
+        System.out.println(password);
 
         Integer userPermissions = getUserPermissions(username, password);
+        permission = userPermissions;
+        user = username;
+        System.out.println(userPermissions);
         if (userPermissions != null) {
             session.setAttribute("username", username);
             session.setAttribute("userpermissions", userPermissions);
@@ -57,6 +71,18 @@ public class HolidayController {
             // User not found or invalid credentials
         }
         return userPermissions;
+    }
+
+    @GetMapping("/getUserPermissions")
+    public ResponseEntity<?> getUserPermissions(HttpSession session) {
+        Integer userPermissions = (Integer) session.getAttribute("userpermissions");
+        System.out.println(userPermissions);
+        System.out.println(session.getAttribute("username"));
+        if (permission != 2) {
+            return ResponseEntity.ok(permission);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User permissions not found");
+        }
     }
 
     @PostMapping("/signup")
@@ -91,6 +117,8 @@ public class HolidayController {
         if (session != null) {
             session.invalidate();
         }
+        user = "";
+        permission = 2;
         return ResponseEntity.ok("Session has been invalidated");
     }
 
@@ -172,6 +200,44 @@ public class HolidayController {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("error", errorMessage);
         return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    @GetMapping("/getUsernames")
+    public ResponseEntity<List<String>> getUsernames() {
+        String query = "SELECT Name FROM users WHERE userpermissions = 1";
+        List<String> usernames = jdbcTemplate.queryForList(query, String.class);
+        return ResponseEntity.ok(usernames);
+    }
+
+    @PostMapping("/getNumOfQueries")
+    public ResponseEntity<?> getNumOfQueries(@RequestBody NumOfQueriesRequest request, HttpSession session) {
+        try {
+            String username = request.getUsername();
+            Date startDate = request.getStartDate();
+            Date endDate = request.getEndDate();
+            System.out.println(username);
+            System.out.println(startDate);
+            System.out.println(endDate);
+
+            String query = "SELECT Count(Query) FROM users_expenditure WHERE Name = ? AND Date > ? AND Date < ?";
+
+            Integer numberOfQueries = jdbcTemplate.queryForObject(query, Integer.class, username, startDate, endDate);
+            if (numberOfQueries == null) {
+                // No queries found for the specified criteria
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("{\"error\": \"No queries found for the specified criteria\"}");
+            }
+
+            return ResponseEntity.ok("{\"numOfQueries\": " + numberOfQueries + "}");
+        } catch (EmptyResultDataAccessException e) {
+            // Handle the case where no rows are returned by the query
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("{\"error\": \"No queries found for the specified criteria\"}");
+        } catch (Exception e) {
+            // Handle other exceptions
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\": \"Error occurred while retrieving number of queries\"}");
+        }
     }
 
     private String getQueryType(String query) {

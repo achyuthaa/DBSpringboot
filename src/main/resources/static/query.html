@@ -1,44 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Custom Query Execution</title>
     <style>
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
-      th,
-      td {
-        border: 1px solid #dddddd;
-        text-align: left;
-        padding: 8px;
-      }
+        th,
+        td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
 
-      th {
-        background-color: #f2f2f2;
-      }
+        th {
+            background-color: #f2f2f2;
+        }
 
-      #downloadPdfButton {
-        display: none;
-        margin-top: 10px;
-      }
+        #downloadPdfButton {
+            display: none;
+            margin-top: 10px;
+        }
     </style>
-  </head>
-  <body>
-    <h1>Enter Custom Query</h1>
-    <textarea id="queryInput" rows="4" cols="50"></textarea><br />
-    <button onclick="executeQuery()">Execute Query</button>
-    <button onclick="logout()">Logout</button>
-    <!-- Added logout button -->
-    <div id="queryResult"></div>
-    <button id="downloadPdfButton" onclick="downloadPdf()">Download PDF</button>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
+</head>
+<body>
+<h1>Enter Custom Query</h1>
+<textarea id="queryInput" rows="4" cols="50"></textarea><br/>
+<button onclick="executeQuery()">Execute Query</button>
+<button onclick="logout()">Logout</button>
+<div id="queryResult"></div>
+<button id="downloadPdfButton" onclick="downloadPdf()">Download PDF</button>
+
+<div id="permissionInfo" style="margin-top: 20px; display: none;">
+  <p><strong>Select Username:</strong>
+  <select id="usernameSelect">
+      <option value="">Select User</option>
+  </select></p>
+  <p><strong>Start Date:</strong> <input type="date" id="startDate"></p>
+  <p><strong>End Date:</strong> <input type="date" id="endDate"></p>
+  <button id="getNumOfQueriesButton" onclick="getNumOfQueries()">Get Number of Queries</button>
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+
+window.addEventListener("load", function() {
+    populateUsernames();
+    checkLoginAndDisplay();
+});
+  // Function to fetch usernames from the database and populate the dropdown
+  function populateUsernames() {
+    fetch('/api/holiday/getUsernames')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch usernames');
+        }
+        return response.json(); // Parse the response as JSON
+    })
+    .then(data => {
+        const usernameSelect = document.getElementById('usernameSelect');
+        usernameSelect.innerHTML = '<option value="">Select User</option>';
+        data.forEach(username => {
+            const option = document.createElement('option');
+            option.value = username;
+            option.textContent = username;
+            usernameSelect.appendChild(option);
+        });
+    })
+    .catch(error => console.error('Error fetching usernames:', error));
+}
+
+// Call populateUsernames function when the page loads
+function fetchUserPermissions() {
+    return fetch("/api/holiday/getUserPermissions")
+        .then(response => {
+            if (response.ok) {
+                return response.json(); // Return parsed JSON
+            } else {
+                throw new Error("Failed to fetch user permissions");
+            }
+        });
+}
+
+function checkLoginAndDisplay() {
+    isLoggedIn().then(function(loggedIn) {
+        if (loggedIn) {
+            fetchUserPermissions().then(function(userPermissions) { // Modified here
+                if (userPermissions === 0) {
+                    // User is logged in and has permission value 0, display dates and submit button
+                    document.getElementById("permissionInfo").style.display = "block";
+                    document.getElementById("getNumOfQueriesButton").style.display = "block";
+                    document.getElementById("getNumOfQueriesButton").style.display = "block";
+                } else if (userPermissions === 1) {
+                    // User is logged in but does not have permission value 0, hide dates but show query page
+                    document.getElementById("permissionInfo").style.display = "none";
+                    document.getElementById("getNumOfQueriesButton").style.display = "none";
+                } else {
+                    // User is logged in but has unknown permissions, hide everything
+                    document.getElementById("permissionInfo").style.display = "none";
+                    document.getElementById("getNumOfQueriesButton").style.display = "none";
+                    alert("Unknown permissions. Please contact the administrator.");
+                }
+            }).catch(function(error) {
+                alert("An error occurred while fetching user permissions: " + error.message);
+            });
+        } else {
+            // User is not logged in, hide dates and submit button
+            document.getElementById("permissionInfo").style.display = "none";
+            document.getElementById("submitQueryButton").style.display = "none";
+            alert("Please log in to view the dates and submit queries.");
+        }
+    });
+}
+
+    function getNumOfQueries() {
+        var startDate = document.getElementById("startDate").value;
+        var endDate = document.getElementById("endDate").value;
+        var username = document.getElementById("usernameSelect").value;
+
+        // Add your logic to retrieve the number of queries in the specified time frame
+        // Make sure to send the start and end dates to your backend API
+
+        // Example code to send start and end dates to backend API
+        fetch("/api/holiday/getNumOfQueries", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ startDate: startDate, endDate: endDate, username: username}),
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().then((errorResponse) => {
+                        throw new Error(errorResponse.error);
+                    });
+                }
+                return response.json();
+            })
+            .then((data) => {
+                alert("Number of queries between " + startDate + " and " + endDate +" excluding both the dates for the user \n"+ username  +" : " + data.numOfQueries);
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                alert("An error occurred while retrieving the number of queries: " + error.message);
+            });
+    }
+
+    // Remaining JavaScript functions...
+
+    // Call checkLoginAndDisplay when the page loads
       // Function to check if the user is logged in
       function isLoggedIn() {
         return fetch("/api/holiday/isLoggedIn")
